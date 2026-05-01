@@ -9,7 +9,7 @@ import Footer from "./components/Footer";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import Home from "./pages/Home";
-import Learn from "./pages/Learn";
+import CheatSheet from "./pages/CheatSheet";
 import Games from "./pages/Games";
 import AIExplain from "./pages/AIExplain";
 import Leaderboard from "./pages/Leaderboard";
@@ -22,6 +22,9 @@ import Compiler from "./pages/Compiler";
 import DSA from "./pages/DSA";
 import Challenges from "./pages/Challenges";
 import Flashcards from "./pages/Flashcards";
+import Playground from "./pages/Playground";
+import Placement from "./pages/Placement";
+import Analogies from "./pages/Analogies";
 
 // ── Mega menu data ────────────────────────────────────────────────────────────
 interface NavItem {
@@ -45,7 +48,9 @@ const NAV_GROUPS: NavGroup[] = [
     color: "bg-[#34d399]",
     items: [
       { to: "/dsa",          icon: <Brain className="w-5 h-5" />,    label: "DSA Guide",        desc: "Complete DSA — Arrays to DP, simply explained",    badge: "Full Course", badgeColor: "bg-[#fb923c]" },
-      { to: "/learn",        icon: <BookOpen className="w-5 h-5" />, label: "5-Min Concepts",   desc: "Bite-sized lessons with real-life analogies" },
+      { to: "/analogies",    icon: <Star className="w-5 h-5" />,    label: "Desi Analogies",   desc: "Every concept explained with Indian real-life examples", badge: "🇮🇳", badgeColor: "bg-[#c084fc]" },
+      { to: "/playground",   icon: <BarChart2 className="w-5 h-5" />, label: "Visual Playground", desc: "Watch sorting, trees, graphs come alive step by step", badge: "Visual", badgeColor: "bg-[#38bdf8]" },
+      { to: "/cheatsheet",   icon: <BookOpen className="w-5 h-5" />, label: "Cheat Sheet",      desc: "Copy-paste JS snippets — arrays, async, DSA patterns",  badge: "New", badgeColor: "bg-[#34d399]" },
       { to: "/flashcards",   icon: <Star className="w-5 h-5" />,     label: "Flashcards",       desc: "25 cards — flip, drill, and lock in concepts",     badge: "Study", badgeColor: "bg-[#fde047]" },
       { to: "/compiler",     icon: <Terminal className="w-5 h-5" />, label: "Code Compiler",    desc: "Write & run code in 8 languages instantly",        badge: "New", badgeColor: "bg-[#e94560]" },
       { to: "/explain",      icon: <Bot className="w-5 h-5" />,      label: "AI Explain",       desc: "Paste code, get plain-English breakdown",          badge: "AI", badgeColor: "bg-[#c084fc]" },
@@ -61,51 +66,61 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    trigger: "Careers",
+    color: "bg-[#f472b6]",
+    items: [
+      { to: "/placement",   icon: <Rocket className="w-5 h-5" />,   label: "Placement Roadmap", desc: "Pick your dream company → get your exact study plan", badge: "🎯 New", badgeColor: "bg-[#34d399]" },
+      { to: "/pricing",     icon: <IndianRupee className="w-5 h-5" />, label: "Pricing",        desc: "Free, Pro ₹99/mo, Beginner Pack ₹149 one-time" },
+    ],
+  },
+  {
     trigger: "Explore",
     color: "bg-[#c084fc]",
     items: [
-      { to: "/pricing", icon: <IndianRupee className="w-5 h-5" />, label: "Pricing",       desc: "Free, Pro ₹99/mo, Beginner Pack ₹149 one-time" },
-      { to: "/profile", icon: <User className="w-5 h-5" />,        label: "My Profile",    desc: "XP, streak, roadmap progress and plan details" },
+      { to: "/profile", icon: <User className="w-5 h-5" />, label: "My Profile", desc: "XP, streak, roadmap progress and plan details" },
     ],
   },
 ];
 
 // ── Dropdown panel ────────────────────────────────────────────────────────────
 function DropdownPanel({ group, onClose }: { group: NavGroup; onClose: () => void }) {
+  const twoCol = group.items.length >= 4;
   return (
     <div
-      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[340px] bg-white border-4 border-black shadow-[8px_8px_0_0_#000] z-50
-        animate-[dropIn_0.18s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+      className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-white border-4 border-black shadow-[8px_8px_0_0_#000] z-50
+        animate-[dropIn_0.18s_cubic-bezier(0.34,1.56,0.64,1)_both] ${twoCol ? "w-[620px]" : "w-[340px]"}`}
       style={{ transformOrigin: "top center" }}
     >
       {/* Colored header */}
       <div className={`${group.color} border-b-4 border-black px-4 py-2`}>
         <span className="font-black text-black text-xs uppercase tracking-widest">{group.trigger}</span>
       </div>
-      {/* Items */}
-      {group.items.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          onClick={onClose}
-          className="flex items-start gap-3 px-4 py-3 hover:bg-[#fde047] transition-colors border-b-2 last:border-b-0 border-black/10 group"
-        >
-          <div className="w-9 h-9 bg-black/5 border-2 border-black flex items-center justify-center shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
-            {item.icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-black text-sm">{item.label}</span>
-              {item.badge && (
-                <span className={`${item.badgeColor} border-2 border-black font-black text-[10px] px-1.5 py-0.5 leading-none`}>
-                  {item.badge}
-                </span>
-              )}
+      {/* Items — 2 columns when 4+ items */}
+      <div className={twoCol ? "grid grid-cols-2" : "flex flex-col"}>
+        {group.items.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            onClick={onClose}
+            className="flex items-start gap-3 px-4 py-3 hover:bg-[#fde047] transition-colors border-b-2 border-r-0 odd:border-r-2 border-black/10 group"
+          >
+            <div className="w-9 h-9 bg-black/5 border-2 border-black flex items-center justify-center shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
+              {item.icon}
             </div>
-            <p className="font-bold text-black/50 text-xs mt-0.5 leading-snug">{item.desc}</p>
-          </div>
-        </Link>
-      ))}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-black text-sm">{item.label}</span>
+                {item.badge && (
+                  <span className={`${item.badgeColor} border-2 border-black font-black text-[10px] px-1.5 py-0.5 leading-none`}>
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <p className="font-bold text-black/50 text-xs mt-0.5 leading-snug">{item.desc}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -361,7 +376,7 @@ function AppShell() {
       <main className="flex-1 w-full">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/learn" element={<Learn />} />
+          <Route path="/cheatsheet" element={<CheatSheet />} />
           <Route path="/games" element={<Games />} />
           <Route path="/explain" element={<AIExplain />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
@@ -374,6 +389,9 @@ function AppShell() {
           <Route path="/dsa" element={<DSA />} />
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/flashcards" element={<Flashcards />} />
+          <Route path="/playground" element={<Playground />} />
+          <Route path="/placement" element={<Placement />} />
+          <Route path="/analogies" element={<Analogies />} />
         </Routes>
       </main>
       {!hideFooter && <Footer />}
