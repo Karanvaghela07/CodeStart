@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Trophy, RotateCcw, Zap, CheckCircle2, XCircle, Timer, ArrowLeft, Lightbulb } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 function BackBar({ title, score, total, color, onBack }: { title: string; score: number; total: number; color: string; onBack: () => void }) {
@@ -14,15 +15,27 @@ function BackBar({ title, score, total, color, onBack }: { title: string; score:
 }
 
 function ResultScreen({ emoji, title, score, total, xp, onReplay, onBack }: { emoji: string; title: string; score: number; total: number; xp: number; onReplay: () => void; onBack: () => void }) {
+  const { addXP, updateStreak, incrementGamesPlayed, user } = useAuth();
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
   const msg = pct === 100 ? "Perfect score! You are a coding legend 🔥" : pct >= 70 ? "Great job! Keep it up 💪" : pct >= 40 ? "Not bad — try again to improve 📈" : "Keep practicing, you will get there! 🚀";
+  const earned = score * xp;
+
+  // Save XP exactly once when result screen mounts
+  useEffect(() => {
+    if (earned > 0 && user) {
+      addXP(earned);
+      updateStreak();
+      incrementGamesPlayed();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 gap-5 text-center max-w-lg mx-auto">
       <div className="text-6xl">{emoji}</div>
       <Trophy className="w-12 h-12 text-[#fde047]" />
       <h2 className="text-4xl font-black text-black uppercase">{title}</h2>
       <p className="text-2xl font-black">{score}/{total} correct</p>
-      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{score * xp} XP earned</div>
+      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{earned} XP earned{user ? " & saved!" : " (login to save)"}</div>
       <p className="font-bold text-black/60 text-sm">{msg}</p>
       <div className="flex gap-4 flex-wrap justify-center">
         <button onClick={onReplay} className="bg-[#fde047] border-4 border-black font-black px-6 py-3 shadow-[4px_4px_0_0_#000] flex items-center gap-2 hover:-translate-y-0.5 transition-all"><RotateCcw className="w-4 h-4" /> Play Again</button>
@@ -138,12 +151,14 @@ const typingChallenges = [
 ];
 
 function TypingGame({ onBack }: { onBack: () => void }) {
+  const { addXP, updateStreak, incrementGamesPlayed, user } = useAuth();
   const [idx, setIdx] = useState(0);
   const [typed, setTyped] = useState("");
   const [timeLeft, setTimeLeft] = useState(30);
   const [done, setDone] = useState(false);
   const [won, setWon] = useState(false);
   const [totalXP, setTotalXP] = useState(0);
+  const [xpSaved, setXpSaved] = useState(false);
   const [started, setStarted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ch = typingChallenges[idx];
@@ -154,6 +169,17 @@ function TypingGame({ onBack }: { onBack: () => void }) {
     const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, started, done]);
+
+  // Save XP once when game ends
+  useEffect(() => {
+    if (done && !xpSaved && totalXP > 0 && user) {
+      addXP(totalXP);
+      updateStreak();
+      incrementGamesPlayed();
+      setXpSaved(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
 
   const handleType = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -166,7 +192,7 @@ function TypingGame({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const reset = () => { setIdx(0); setTyped(""); setTimeLeft(30); setDone(false); setWon(false); setTotalXP(0); setStarted(false); };
+  const reset = () => { setIdx(0); setTyped(""); setTimeLeft(30); setDone(false); setWon(false); setTotalXP(0); setXpSaved(false); setStarted(false); };
 
   if (done) return (
     <div className="flex flex-col items-center justify-center py-16 px-4 gap-5 text-center max-w-lg mx-auto">
@@ -174,7 +200,7 @@ function TypingGame({ onBack }: { onBack: () => void }) {
       <Trophy className="w-12 h-12 text-[#fde047]" />
       <h2 className="text-4xl font-black text-black uppercase">{won ? "Speed Coder!" : "Time is Up!"}</h2>
       <p className="text-xl font-black">{idx}/{typingChallenges.length} challenges done</p>
-      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{totalXP} XP earned</div>
+      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{totalXP} XP earned{user ? " & saved!" : " (login to save)"}</div>
       <div className="flex gap-4 flex-wrap justify-center">
         <button onClick={reset} className="bg-[#fde047] border-4 border-black font-black px-6 py-3 shadow-[4px_4px_0_0_#000] flex items-center gap-2 hover:-translate-y-0.5 transition-all"><RotateCcw className="w-4 h-4" /> Try Again</button>
         <button onClick={onBack} className="bg-white border-4 border-black font-black px-6 py-3 shadow-[4px_4px_0_0_#000] hover:-translate-y-0.5 transition-all">All Games</button>
@@ -225,6 +251,7 @@ function TypingGame({ onBack }: { onBack: () => void }) {
 
 // ─── Game 5: Sort the Array ───────────────────────────────────────────────────
 function SortGame({ onBack }: { onBack: () => void }) {
+  const { addXP, updateStreak, incrementGamesPlayed, user } = useAuth();
   const makeArr = () => Array.from({ length: 6 }, () => Math.floor(Math.random() * 80) + 15);
   const [arr, setArr] = useState(makeArr);
   const [selected, setSelected] = useState<number | null>(null);
@@ -232,6 +259,7 @@ function SortGame({ onBack }: { onBack: () => void }) {
   const [won, setWon] = useState(false);
   const [round, setRound] = useState(1);
   const [totalXP, setTotalXP] = useState(0);
+  const [xpSaved, setXpSaved] = useState(false);
 
   const isSorted = (a: number[]) => a.every((v, i) => i === 0 || a[i - 1] <= v);
 
@@ -252,8 +280,20 @@ function SortGame({ onBack }: { onBack: () => void }) {
   };
 
   const nextRound = () => { setArr(makeArr()); setSelected(null); setMoves(0); setWon(false); setRound(r => r + 1); };
-  const reset = () => { setArr(makeArr()); setSelected(null); setMoves(0); setWon(false); setRound(1); setTotalXP(0); };
+  const reset = () => { setArr(makeArr()); setSelected(null); setMoves(0); setWon(false); setRound(1); setTotalXP(0); setXpSaved(false); };
   const maxVal = Math.max(...arr);
+
+  // Save XP when all 3 rounds done
+  const allDone = round >= 3 && won;
+  useEffect(() => {
+    if (allDone && !xpSaved && totalXP > 0 && user) {
+      addXP(totalXP);
+      updateStreak();
+      incrementGamesPlayed();
+      setXpSaved(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDone]);
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
@@ -307,6 +347,7 @@ const memoryPairs = [
 type MemCard = { id: number; text: string; type: "term" | "def"; pairId: number; matched: boolean };
 
 function MemoryGame({ onBack }: { onBack: () => void }) {
+  const { addXP, updateStreak, incrementGamesPlayed, user } = useAuth();
   const makeCards = (): MemCard[] => {
     const cards: MemCard[] = [];
     memoryPairs.forEach((p, i) => {
@@ -320,6 +361,7 @@ function MemoryGame({ onBack }: { onBack: () => void }) {
   const [flipped, setFlipped] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [done, setDone] = useState(false);
+  const [xpSaved, setXpSaved] = useState(false);
 
   const flip = (id: number) => {
     const card = cards.find(c => c.id === id);
@@ -340,8 +382,19 @@ function MemoryGame({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const reset = () => { setCards(makeCards()); setFlipped([]); setMoves(0); setDone(false); };
+  const reset = () => { setCards(makeCards()); setFlipped([]); setMoves(0); setDone(false); setXpSaved(false); };
   const xp = Math.max(50, 300 - moves * 10);
+
+  // Save XP once when done
+  useEffect(() => {
+    if (done && !xpSaved && xp > 0 && user) {
+      addXP(xp);
+      updateStreak();
+      incrementGamesPlayed();
+      setXpSaved(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
 
   if (done) return (
     <div className="flex flex-col items-center justify-center py-16 px-4 gap-5 text-center max-w-lg mx-auto">
@@ -349,7 +402,7 @@ function MemoryGame({ onBack }: { onBack: () => void }) {
       <Trophy className="w-12 h-12 text-[#fde047]" />
       <h2 className="text-4xl font-black text-black uppercase">All Matched!</h2>
       <p className="text-xl font-black">{moves} moves</p>
-      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{xp} XP earned</div>
+      <div className="bg-[#34d399] border-4 border-black px-6 py-3 font-black text-xl shadow-[4px_4px_0_0_#000]">+{xp} XP earned{user ? " & saved!" : " (login to save)"}</div>
       <div className="flex gap-4 flex-wrap justify-center">
         <button onClick={reset} className="bg-[#fde047] border-4 border-black font-black px-6 py-3 shadow-[4px_4px_0_0_#000] flex items-center gap-2 hover:-translate-y-0.5 transition-all"><RotateCcw className="w-4 h-4" /> Play Again</button>
         <button onClick={onBack} className="bg-white border-4 border-black font-black px-6 py-3 shadow-[4px_4px_0_0_#000] hover:-translate-y-0.5 transition-all">All Games</button>

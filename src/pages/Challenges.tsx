@@ -80,27 +80,20 @@ function getTodayChallenge() {
 }
 
 const DONE_KEY = "codestart_challenge_done";
-const STREAK_KEY = "codestart_challenge_streak";
+
+function getTodayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function getDoneToday(): boolean {
   try {
     const data = JSON.parse(localStorage.getItem(DONE_KEY) || "{}");
-    const today = new Date().toDateString();
-    return data.date === today && data.done === true;
+    return data.date === getTodayStr() && data.done === true;
   } catch { return false; }
 }
 
 function markDoneToday() {
-  localStorage.setItem(DONE_KEY, JSON.stringify({ date: new Date().toDateString(), done: true }));
-}
-
-function getStreak(): number {
-  try { return parseInt(localStorage.getItem(STREAK_KEY) || "0"); }
-  catch { return 0; }
-}
-
-function incrementStreak() {
-  localStorage.setItem(STREAK_KEY, String(getStreak() + 1));
+  localStorage.setItem(DONE_KEY, JSON.stringify({ date: getTodayStr(), done: true }));
 }
 
 const diffColor: Record<string, string> = {
@@ -108,13 +101,12 @@ const diffColor: Record<string, string> = {
 };
 
 export default function Challenges() {
-  const { user, addXP, canAccess } = useAuth();
+  const { user, addXP, canAccess, updateStreak, markChallengeComplete } = useAuth();
   const [challenge] = useState(getTodayChallenge);
   const [showHint, setShowHint] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [quizSel, setQuizSel] = useState<number | null>(null);
   const [completed, setCompleted] = useState(getDoneToday);
-  const [streak] = useState(getStreak);
   const [timeLeft, setTimeLeft] = useState(() => {
     const now = new Date();
     const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
@@ -133,13 +125,18 @@ export default function Challenges() {
 
   const handleComplete = () => {
     if (completed) return;
+    const today = getTodayStr();
     markDoneToday();
-    incrementStreak();
     setCompleted(true);
-    if (user) addXP(challenge.xp);
+    if (user) {
+      addXP(challenge.xp);
+      updateStreak();
+      markChallengeComplete(today);
+    }
   };
 
   const isPro = canAccess("pro");
+  const streak = user?.streak ?? 0;
 
   return (
     <div className="bg-white min-h-screen">

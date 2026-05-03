@@ -105,29 +105,9 @@ function EditUsernameModal({ current, onSave, onClose }: {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Profile() {
-  const { user, logout, upgradePlan } = useAuth();
+  const { user, logout, upgradePlan, updateUsername } = useAuth();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
-
-  // We need to update username — add a local helper using localStorage directly
-  // (AuthContext doesn't expose updateUsername, so we do it inline)
-  const updateUsername = (newName: string) => {
-    if (!user) return;
-    const USERS_KEY = "codestart_users";
-    const SESSION_KEY = "codestart_session";
-    try {
-      const users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
-      const key = user.email.toLowerCase();
-      if (users[key]) {
-        users[key].user.username = newName;
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      }
-      const session = { ...user, username: newName };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      // Force page reload to reflect change
-      window.location.reload();
-    } catch { /* ignore */ }
-  };
 
   if (!user) {
     return (
@@ -292,10 +272,10 @@ export default function Profile() {
             <div className="bg-[#fde047] border-b-4 border-black px-5 py-3 font-black text-black uppercase text-sm">Your Stats</div>
             <div className="bg-white grid grid-cols-2 md:grid-cols-4">
               {[
-                { label: "Total XP",       val: user.xp,              color: "text-[#fde047]",  bg: "bg-[#fde047]/10" },
-                { label: "Day Streak",     val: user.streak,          color: "text-[#fb923c]",  bg: "bg-[#fb923c]/10" },
-                { label: "Lessons Done",   val: completedLessons,     color: "text-[#34d399]",  bg: "bg-[#34d399]/10" },
-                { label: "Stages Done",    val: `${completedStages}/${TOTAL_STAGES}`, color: "text-[#c084fc]", bg: "bg-[#c084fc]/10" },
+                { label: "Total XP",         val: user.xp,                              color: "text-[#fde047]",  bg: "bg-[#fde047]/10" },
+                { label: "Day Streak",        val: user.streak,                          color: "text-[#fb923c]",  bg: "bg-[#fb923c]/10" },
+                { label: "Challenges Done",   val: (user.challengesDone ?? []).length,   color: "text-[#34d399]",  bg: "bg-[#34d399]/10" },
+                { label: "Games Played",      val: user.gamesPlayed ?? 0,                color: "text-[#c084fc]",  bg: "bg-[#c084fc]/10" },
               ].map((s, i) => (
                 <div key={i} className={`${s.bg} border-r-2 last:border-r-0 border-black/10 px-5 py-5 text-center`}>
                   <p className={`font-black text-3xl ${s.color}`}>{s.val}</p>
@@ -352,12 +332,13 @@ export default function Profile() {
 
           {/* XP breakdown */}
           <div className="border-4 border-black shadow-[6px_6px_0_0_#000]">
-            <div className="bg-[#38bdf8] border-b-4 border-black px-5 py-3 font-black text-black uppercase text-sm">XP Breakdown</div>
+            <div className="bg-[#38bdf8] border-b-4 border-black px-5 py-3 font-black text-black uppercase text-sm">Activity Summary</div>
             <div className="bg-white px-5 py-4 flex flex-col gap-3">
               {[
-                { label: "From roadmap lessons", val: completedLessons * 25, color: "bg-[#34d399]" },
-                { label: "Stage completion bonuses", val: totalXPFromRoadmap - completedLessons * 25, color: "bg-[#fde047]" },
-                { label: "Total XP on account", val: user.xp, color: "bg-[#c084fc]" },
+                { label: "Challenges completed", val: (user.challengesDone ?? []).length, color: "bg-[#34d399]", suffix: "" },
+                { label: "Games played",          val: user.gamesPlayed ?? 0,              color: "bg-[#fde047]", suffix: "" },
+                { label: "AI Explain used",       val: user.aiExplainUsed ?? 0,            color: "bg-[#c084fc]", suffix: "" },
+                { label: "Total XP earned",       val: user.xp,                            color: "bg-[#fb923c]", suffix: " XP" },
               ].map((row, i) => (
                 <div key={i} className="flex items-center justify-between border-b-2 border-black/10 pb-3 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2">
@@ -365,7 +346,7 @@ export default function Profile() {
                     <span className="font-bold text-black/70 text-sm">{row.label}</span>
                   </div>
                   <span className="font-black text-black text-sm flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-[#fde047]" /> {row.val}
+                    {row.suffix === " XP" && <Zap className="w-3 h-3 text-[#fde047]" />} {row.val}{row.suffix}
                   </span>
                 </div>
               ))}

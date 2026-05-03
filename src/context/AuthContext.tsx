@@ -7,9 +7,13 @@ export interface User {
   email: string;
   xp: number;
   streak: number;
+  lastActiveDate: string;   // ISO date string — for streak tracking
   plan: PlanType;
   purchasedAt?: string;
   joinedAt: string;
+  challengesDone: string[]; // array of "YYYY-MM-DD" dates completed
+  gamesPlayed: number;
+  aiExplainUsed: number;
 }
 
 interface AuthContextType {
@@ -20,6 +24,12 @@ interface AuthContextType {
   addXP: (amount: number) => void;
   upgradePlan: (plan: PlanType) => void;
   canAccess: (requiredPlan: PlanType) => boolean;
+  updateStreak: () => void;
+  updateUsername: (name: string) => void;
+  markChallengeComplete: (date: string) => void;
+  incrementGamesPlayed: () => void;
+  incrementAIExplain: () => void;
+  getAllUsers: () => User[];
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -43,6 +53,16 @@ function persistUser(user: User) {
   if (users[key]) { users[key].user = user; saveUsers(users); }
 }
 
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+
+function yesterdayStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     try { const r = localStorage.getItem(SESSION_KEY); return r ? JSON.parse(r) : null; }
@@ -64,7 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (users[key]) return { ok: false, error: "An account with this email already exists." };
     const newUser: User = {
       username: username.trim(), email: key,
-      xp: 0, streak: 0, plan: "free", joinedAt: new Date().toISOString(),
+      xp: 0, streak: 0, plan: "free",
+      joinedAt: new Date().toISOString(),
+      lastActiveDate: todayStr(),
+      challengesDone: [],
+      gamesPlayed: 0,
+      aiExplainUsed: 0,
     };
     users[key] = { password, user: newUser };
     saveUsers(users);
@@ -79,7 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const record = users[email.toLowerCase()];
     if (!record) return { ok: false, error: "No account found with this email." };
     if (record.password !== password) return { ok: false, error: "Incorrect password." };
-    setUser(record.user);
+    // Migrate old users missing new fields
+    const u = record.user;
+    const migrated: User = {
+      ...u,
+      lastActiveDate: u.lastActiveDate ?? todayStr(),
+      challengesDone: u.challengesDone ?? [],
+      gamesPlayed: u.gamesPlayed ?? 0,
+      aiExplainUsed: u.aiExplainUsed ?? 0,
+    };
+    setUser(migrated);
+    persistUser(migrated);
     return { ok: true };
   };
 
@@ -99,17 +134,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistUser(updated);
   };
 
-  // free = everyone (logged in or not), pro = pro or pack users, pack = pack only
+  // Call this whenever user does something active — updates streak
+  const updateStreak = () => {
+    if (!user) return;
+    const today = todayStr();
+    const yesterday = yesterdayStr();
+    const last = user.lastActiveDate;
+    let newStreak = user.streak;
+    if (last === today) return; // already counted today
+    if (last === yesterday) newStreak = user.streak + 1; // consecutive day
+    else newStreak = 1; // streak broken, restart
+    const updated = { ...user, streak: newStreak, lastActiveDate: today };
+    setUser(updated);
+    persistUser(updated);
+  };
+
+  const updateUsername = (name: string) => {
+    if (!user) return;
+    const updated = { ...user, username: name };
+    setUser(updated);
+    persistUser(updated);
+  };
+
+  const markChallengeComplete = (date: string) => {
+    if (!user) return;
+    if (user.challengesDone.includes(date)) return;
+    const updated = { ...user, challengesDone: [...user.challengesDone, date] };
+    setUser(updated);
+    persistUser(updated);
+  };
+
+  const incrementGamesPlayed = () => {
+    if (!user) return;
+    const updated = { ...user, gamesPlayed: (user.gamesPlayed ?? 0) + 1 };
+    setUser(updated);
+    persistUser(updated);
+  };
+
+  const incrementAIExplain = () => {
+    if (!user) return;
+    const updated = { ...user, aiExplainUsed: (user.aiExplainUsed ?? 0) + 1 };
+    setUser(updated);
+    persistUser(updated);
+  };
+
+  const getAllUsers = (): User[] => {
+    const users = getUsers();
+    return Object.values(users).map(r => r.user);
+  };
+
   const canAccess = (requiredPlan: PlanType): boolean => {
-    if (requiredPlan === "free") return true; // always accessible
-    if (!user) return false; // must be logged in for paid content
+    if (requiredPlan === "free") return true;
+    if (!user) return false;
     if (requiredPlan === "pro") return user.plan === "pro" || user.plan === "pack";
     if (requiredPlan === "pack") return user.plan === "pack";
     return false;
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, addXP, upgradePlan, canAccess }}>
+    <AuthContext.Provider value={{
+      user, login, register, logout, addXP, upgradePlan, canAccess,
+      updateStreak, updateUsername, markChallengeComplete,
+      incrementGamesPlayed, incrementAIExplain, getAllUsers,
+    }}>
       {children}
     </AuthContext.Provider>
   );
